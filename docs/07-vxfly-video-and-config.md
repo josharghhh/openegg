@@ -180,7 +180,7 @@ Either way, close and reopen the stream after ~60 consecutive missing frames (or
 - Timeout: Java `TryConnectGround(ms)` passes `ms*1000` µs (`vf/config/VFConfig.java:531-536`).
 - **Not** `.11` / `.12` (doc 03 guessed those). In libvfconfig, `192.168.1.11` / `.12` are only used by `jni_vfconfig_execute @ 0003a798`, cmd 0x26 = UpdateDlFirmware:
   - an FTP client to `.11` (ground) or `.12` (air)
-  - user `admin`, pass `admin123`
+  - a factory FTP login (credentials redacted; firmware upload is out of scope)
   - `STOR a.bin`
   OBSERVED strings at 0x53821, 0x5382e, 0x526cd, 0x53853, 0x5386b.
 - INFERRED network picture: `.2` = VxFly ground radio/controller, `.240` = VxFly air unit (radio + H.264 encoder), `.11` / `.12` = PowerVision station / flight computers (MAVLink 20002). The pDDL radios bridge at L2, so `.240` is reachable from the phone on the station AP.

@@ -43,3 +43,6 @@ MAVLink definitions are generated from the official XML: `python tools/gen_mavli
 `docs/HARDWARE-TEST.md` is the first safe hardware checklist.
 
 This repository contains none of PowerVision's code, binaries or manuals.
+
+## Licence
+MIT. See [LICENSE](LICENSE). This project is not affiliated with PowerVision.

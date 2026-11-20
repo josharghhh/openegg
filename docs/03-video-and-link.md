@@ -103,7 +103,7 @@ Path abbreviations: `gcs/` = `com/powervision/gcs/`, `psdk/` = `com/powervision/
   - Command names: `Heartbeat Connect Connected Close GetApSSID SetApSSID … GetVideoResolution SetVideoResolution GetVideoRate SetVideoRate … UpdateFirmware UpdateDlFirmware`.
   - IPs: `192.168.1.11`, `192.168.1.12`, `192.168.1.2`, `192.168.1.240`, `0.0.0.0`, `255.255.255.255`.
   - Classes: `VFNetSocket`, `VFUSBSocket`, `VFAsyncSocket`, `VFProtocolPacket`, `VFProtocolSocket`, `VFTelnetParser`, `VFConsoleParser`, `VFPddlPacket`.
-  - Telnet login `admin` / `admin123`.
+  - A factory telnet login exists (credentials redacted; OpenEgg never uses it).
   - Microhard-style AT commands: `at+mwfreq`, `at+mwvmode`, `at+mwnetworkid`, `at+mwvencrypt`, `at+mwstatus`, `at+mssysi`.
   - An embedded FTP server (`VFFTP`, `ftp://%d.%d.%d.%d:52222/%s`).
 - **INFERRED:**
