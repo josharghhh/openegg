@@ -55,7 +55,8 @@ import com.openegg.app.ui.flight.FlightColors
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private val SheetColor = Color(0xE6121212)
+// Near-opaque: the sheet sits over a busy map or video, and text must stay readable.
+private val SheetColor = Color(0xF7121212)
 private val RowColor = Color(0x22FFFFFF)
 
 /**

@@ -53,7 +53,8 @@ import com.openegg.app.drone.mission.Mission
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private val PanelBg = Color(0xE6101418)
+// Near-opaque: the panel sits over a busy map, and text must stay readable.
+private val PanelBg = Color(0xF7101418)
 private val RowBg = Color(0xFF1C2228)
 private val Accent = Color(0xFF4FC3F7)
 private val Warn = Color(0xFFFFB74D)
@@ -126,16 +127,18 @@ fun MissionEditorPanel(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        // Title + totals on one line, and "Add at aircraft" in the button row: in landscape the panel
+        // is short, and every fixed line it saves is another waypoint row visible in the list.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Waypoint mission", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.weight(1f))
+            Column(Modifier.weight(1f)) {
+                Text("Waypoint mission", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(
+                    "${waypoints.size}/${limits.maxWaypoints} pts · ${formatDistance(stats.distanceM)} · ~${formatDuration(stats.estimatedTimeS)}",
+                    color = Dim, fontSize = 12.sp,
+                )
+            }
             if (onClose != null) SmallButton("Close", onClick = onClose)
         }
-
-        // Totals
-        Text(
-            "${waypoints.size}/${limits.maxWaypoints} pts · ${formatDistance(stats.distanceM)} · ~${formatDuration(stats.estimatedTimeS)}",
-            color = Dim, fontSize = 13.sp,
-        )
         stats.batteryWarning(readiness.batteryPercent)?.let { Text(it, color = Warn, fontSize = 13.sp) }
         if (waypoints.isEmpty()) {
             Text("Long-press the map to add waypoints.", color = Dim, fontSize = 13.sp)
@@ -165,11 +168,14 @@ fun MissionEditorPanel(
         if (issues.size > 3) Text("+${issues.size - 3} more problems", color = Danger, fontSize = 12.sp)
 
         StatusLine(progress)
-
-        if (onAddAtAircraft != null && !progress.isFlying) {
-            SmallButton("Add at aircraft", enabled = !busy && waypoints.size < limits.maxWaypoints, onClick = onAddAtAircraft)
+        if (!progress.isFlying && startBlockers.isNotEmpty()) {
+            Text(startBlockers.first(), color = Dim, fontSize = 12.sp)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (onAddAtAircraft != null && !progress.isFlying) {
+                SmallButton("+ Here", enabled = !busy && waypoints.size < limits.maxWaypoints, onClick = onAddAtAircraft)
+            }
             when (progress.phase) {
                 MissionProgress.Phase.RUNNING -> {
                     BigButton("Pause", Warn, Modifier.weight(1f), onClick = onPause)
@@ -193,9 +199,6 @@ fun MissionEditorPanel(
                     )
                 }
             }
-        }
-        if (!progress.isFlying && startBlockers.isNotEmpty()) {
-            Text(startBlockers.first(), color = Dim, fontSize = 12.sp)
         }
     }
 }

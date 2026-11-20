@@ -11,8 +11,8 @@ android {
         applicationId = "com.openegg.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 6
+        versionName = "0.3.3"
 
         // 64-bit only: arm64 for phones (Galaxy S25 Ultra has no 32-bit support), x86_64 for the emulator.
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }

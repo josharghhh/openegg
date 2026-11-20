@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openegg.app.camera.CameraSettingsRepository.Nudge
 import com.openegg.app.camera.GimbalNudges
+import com.openegg.app.ui.flight.Caption
 import com.openegg.app.ui.flight.FlightColors
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -88,11 +89,7 @@ fun GimbalPitchControl(
     }
 
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            pitchDeg?.let { "%+.0f°".format(it) } ?: "--°",
-            color = Color.White, fontSize = 13.sp, fontFamily = FontFamily.Monospace,
-            modifier = Modifier.padding(bottom = 4.dp),
-        )
+        Caption(pitchDeg?.let { "%+.0f°".format(it) } ?: "--°", Modifier.padding(bottom = 4.dp))
         Box(
             Modifier
                 .size(trackWidth, trackHeight)
@@ -131,6 +128,6 @@ fun GimbalPitchControl(
                     .background(if (!enabled) FlightColors.muted else if (active) FlightColors.warn else Color.White),
             )
         }
-        Text("GIMBAL", color = FlightColors.muted, fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
+        Caption("GIMBAL", Modifier.padding(top = 4.dp))
     }
 }

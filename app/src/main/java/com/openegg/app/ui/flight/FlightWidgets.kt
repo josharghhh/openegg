@@ -64,8 +64,49 @@ fun StatusPill(text: String, color: Color = Color.White, modifier: Modifier = Mo
             .background(FlightColors.panel)
             .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
-        Text(text, color = color, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        Text(text, color = color, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
     }
+}
+
+/** Tappable pill with the same translucent background as [StatusPill], readable over the map. */
+@Composable
+fun PillButton(text: String, onClick: () -> Unit, active: Boolean = false, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .clip(RoundedCornerShape(50))
+            .background(if (active) Color(0xCC2B6CB0) else FlightColors.panel)
+            .semantics { role = Role.Button; contentDescription = text }
+            .pointerInput(Unit) { detectTapGestures(onTap = { onClick() }) }
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        Text(text, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
+    }
+}
+
+/** Five signal bars of increasing height; [bars] of them filled. */
+@Composable
+fun SignalBars(bars: Int, modifier: Modifier = Modifier) {
+    Canvas(modifier.size(width = 22.dp, height = 12.dp)) {
+        val w = size.width / 5
+        for (i in 0 until 5) {
+            val h = size.height * (i + 1) / 5
+            drawRect(
+                if (i < bars) Color.White else Color.White.copy(alpha = 0.25f),
+                topLeft = Offset(i * w + 1f, size.height - h),
+                size = Size(w - 2f, h),
+            )
+        }
+    }
+}
+
+/** Small caption with a translucent backing so it stays legible over map or video. */
+@Composable
+fun Caption(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        color = Color(0xFFD0D0D0), fontSize = 10.sp, maxLines = 1, softWrap = false,
+        modifier = modifier.clip(RoundedCornerShape(4.dp)).background(FlightColors.panel).padding(horizontal = 6.dp, vertical = 1.dp),
+    )
 }
 
 /** Label + big monospace value, e.g. "H  12.4 m". */
@@ -73,7 +114,7 @@ fun StatusPill(text: String, color: Color = Color.White, modifier: Modifier = Mo
 fun Readout(label: String, value: String, modifier: Modifier = Modifier) {
     Column(modifier) {
         Text(label, color = FlightColors.muted, fontSize = 11.sp)
-        Text(value, color = Color.White, fontSize = 20.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold)
+        Text(value, color = Color.White, fontSize = 18.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
     }
 }
 
@@ -112,6 +153,7 @@ fun AttitudeIndicator(rollRad: Float, pitchRad: Float, headingDeg: Float?, size:
         Text(
             headingDeg?.let { "HDG %03.0f°".format(it) } ?: "HDG ---",
             color = Color.White, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
+            modifier = Modifier.padding(top = 2.dp).clip(RoundedCornerShape(4.dp)).background(FlightColors.panel).padding(horizontal = 6.dp, vertical = 1.dp),
         )
     }
 }
@@ -168,7 +210,7 @@ fun HoldToConfirmButton(
             }
             Text(label, color = tint, fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
-        Text(sublabel, color = FlightColors.muted, fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp))
+        Caption(sublabel, Modifier.padding(top = 2.dp))
     }
 }
 

@@ -67,7 +67,8 @@ class DroneSession(
             }
         }
         log?.let { l ->
-            scope.launch { link.state.collect { l.event("LINK", describe(it)) } }
+            // describe() omits the heartbeat timestamp, so this logs real changes, not every heartbeat.
+            scope.launch { link.state.map { describe(it) }.distinctUntilChanged().collect { l.event("LINK", it) } }
             scope.launch { link.unknownFrames.collect { l.unknownFrame(it.messageId, it.payload) } }
             scope.launch {
                 station.status

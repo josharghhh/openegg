@@ -13,6 +13,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -29,6 +38,7 @@ import com.openegg.app.drone.AlarmSeverity
 import com.openegg.app.drone.activeAlarms
 import com.openegg.app.drone.mission.MissionReadiness
 import com.openegg.app.ui.map.FlightMap
+import com.openegg.app.ui.map.toMapState
 import com.openegg.app.ui.map.MapPreview
 import com.openegg.app.ui.map.MapWaypoint
 import com.openegg.app.ui.map.PipFrame
@@ -82,71 +92,92 @@ fun FlightScreen(vm: FlightViewModel, onExit: () -> Unit) {
         }
     }
 
+    // Layout slots (landscape). Everything lives in a slot; nothing floats over another control.
+    //  ┌ status bar: back · link · mode · motors · ROUTE ·········· station · GPS · battery ┐
+    //  │ map buttons (row) + map credit, top-left       warnings (centre)       [panel ►] │
+    //  └ HOME/HOVER · PiP · readouts · ····· horizon · gimbal · camera  (right part hidden │
+    //                                                     while a panel is open)         ┘
+    val safe = WindowInsets.safeDrawing.asPaddingValues()
+    val dir = LocalLayoutDirection.current
+    val edgeStart = safe.calculateStartPadding(dir) + 12.dp
+    val belowStatusBar = safe.calculateTopPadding() + 12.dp + StatusBarHeight + 8.dp
+    val panelOpen = showRoute || showCameraSettings
+
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (mapIsMain) {
             FlightMap(
-                t, Modifier.fillMaxSize(), trail = trail, waypoints = mapWaypoints,
+                state = t.toMapState(), modifier = Modifier.fillMaxSize(), trail = trail, waypoints = mapWaypoints,
                 onMapLongPress = { lat, lon -> if (showRoute) vm.addWaypoint(lat, lon) },
                 onWaypointDrag = { i, lat, lon -> vm.moveWaypoint(i, lat, lon) },
+                controlsAlignment = Alignment.TopStart,
+                controlsPadding = PaddingValues(start = edgeStart, top = belowStatusBar),
+                controlsInRow = true,
+                attributionGravity = android.view.Gravity.TOP or android.view.Gravity.START,
+                attributionMarginsDp = intArrayOf(edgeStart.value.toInt(), (belowStatusBar + MapButtonsRowHeight).value.toInt(), 0, 0),
             )
         } else {
             video(Modifier.fillMaxSize())
         }
 
         Column(Modifier.fillMaxSize().safeDrawingPadding().padding(12.dp)) {
-            StatusBar(t, link, source, recordingSince, station, onExit)
-            Spacer(Modifier.height(8.dp))
-            Warnings(t, link, Modifier.align(Alignment.CenterHorizontally))
-            Spacer(Modifier.weight(1f))
-            // Picture-in-picture: whichever of map/video is not main. Tap to swap.
-            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (mapIsMain) {
-                    PipFrame(onClick = { mapIsMain = false }, description = "Video — tap to enlarge") { video(Modifier.fillMaxSize()) }
-                } else {
-                    MapPreview(t, onClick = { mapIsMain = true }, trail = trail, waypoints = mapWaypoints)
-                }
-                TextButton(onClick = { showRoute = !showRoute; if (showRoute) mapIsMain = true }) {
-                    Text(if (showRoute) "Close route" else "ROUTE", color = Color.White)
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                FlightActions(canCommand, vm)
-                Spacer(Modifier.width(16.dp))
-                FlightReadouts(t)
-                Spacer(Modifier.weight(1f))
-                AttitudeIndicator(t.roll, t.pitch, t.headingDeg)
-                Spacer(Modifier.width(16.dp))
-                CameraControls(canCommand, recordingSince != null, vm, onSettings = { showCameraSettings = true })
-            }
-        }
-
-        camera?.let { repo ->
-            GimbalPitchControl(
-                t.gimbalPitchDeg, repo::holdPitchRate,
-                Modifier.align(Alignment.CenterEnd).safeDrawingPadding().padding(end = 108.dp),
-                enabled = canCommand,
+            StatusBar(t, link, source, recordingSince, station, onExit,
+                routeOpen = showRoute,
+                onRoute = {
+                    showRoute = !showRoute
+                    if (showRoute) { showCameraSettings = false; mapIsMain = true }
+                },
             )
-            if (showCameraSettings) {
-                CameraSettingsPanel(repo, onClose = { showCameraSettings = false }, modifier = Modifier.align(Alignment.CenterEnd))
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth().weight(1f)) {
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    // Leave room for the map's button row + credit when the map is the main view.
+                    if (mapIsMain) Spacer(Modifier.height(MapButtonsRowHeight + 20.dp))
+                    Warnings(t, link, Modifier.align(Alignment.CenterHorizontally))
+                    Spacer(Modifier.weight(1f))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FlightActions(canCommand, vm)
+                        // Picture-in-picture: whichever of map/video is not main. Tap to swap.
+                        // Hidden while a panel is open, so the readouts keep their width.
+                        if (!panelOpen) {
+                            if (mapIsMain) {
+                                PipFrame(onClick = { mapIsMain = false }, description = "Video — tap to enlarge") {
+                                    video(Modifier.fillMaxSize().background(Color.Black))
+                                }
+                            } else {
+                                MapPreview(t, onClick = { mapIsMain = true }, trail = trail, waypoints = mapWaypoints)
+                            }
+                        }
+                        FlightReadouts(t)
+                        if (!panelOpen) {
+                            Spacer(Modifier.weight(1f))
+                            AttitudeIndicator(t.roll, t.pitch, t.headingDeg, size = 96.dp)
+                            camera?.let { repo -> GimbalPitchControl(t.gimbalPitchDeg, repo::holdPitchRate, enabled = canCommand, trackHeight = 150.dp) }
+                            CameraControls(canCommand, recordingSince != null, vm, onSettings = { showCameraSettings = true; showRoute = false })
+                        }
+                    }
+                }
+                if (panelOpen) {
+                    Spacer(Modifier.width(12.dp))
+                    val repo = camera
+                    if (showCameraSettings && repo != null) {
+                        CameraSettingsPanel(repo, onClose = { showCameraSettings = false }, modifier = Modifier.fillMaxHeight())
+                    } else if (showRoute) {
+                        MissionEditorPanel(
+                            waypoints = waypoints,
+                            onWaypointsChange = vm::setWaypoints,
+                            progress = missionProgress,
+                            readiness = MissionReadiness.from(t, link.connected && !link.stale),
+                            onUpload = vm::uploadMission,
+                            onStart = vm::startMission,
+                            onPause = vm::pauseMission,
+                            onResume = vm::resumeMission,
+                            onAbort = vm::abortMission,
+                            onAddAtAircraft = { t.latitude?.let { lat -> t.longitude?.let { lon -> vm.addWaypoint(lat, lon) } } },
+                            onClose = { showRoute = false },
+                        )
+                    }
+                }
             }
-        }
-
-        if (showRoute) {
-            MissionEditorPanel(
-                waypoints = waypoints,
-                onWaypointsChange = vm::setWaypoints,
-                progress = missionProgress,
-                readiness = MissionReadiness.from(t, link.connected && !link.stale),
-                onUpload = vm::uploadMission,
-                onStart = vm::startMission,
-                onPause = vm::pauseMission,
-                onResume = vm::resumeMission,
-                onAbort = vm::abortMission,
-                onAddAtAircraft = { t.latitude?.let { lat -> t.longitude?.let { lon -> vm.addWaypoint(lat, lon) } } },
-                onClose = { showRoute = false },
-                modifier = Modifier.align(Alignment.CenterEnd).safeDrawingPadding(),
-            )
         }
 
         // Top-centre, below the status bar: never cover readouts, the horizon or controls in flight.
@@ -156,6 +187,13 @@ fun FlightScreen(vm: FlightViewModel, onExit: () -> Unit) {
         )
     }
 }
+
+/** Fixed status-bar height so the map's own buttons can be placed just below it. */
+private val StatusBarHeight = 40.dp
+/** Height of the map's button row (MapButton: 7dp vertical padding + text). */
+private val MapButtonsRowHeight = 36.dp
+/** Wide enough for "+12.3 m/s" in the 18sp monospace readout font, narrow enough that the bottom row fits. */
+private val ReadoutWidth = 96.dp
 
 @Composable
 private fun VideoArea(source: DroneSession.Source?, modifier: Modifier) {
@@ -176,11 +214,17 @@ private fun StatusBar(
     recordingSince: Long?,
     station: StationStatus?,
     onExit: () -> Unit,
+    routeOpen: Boolean,
+    onRoute: () -> Unit,
 ) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        TextButton(onClick = onExit) { Text("‹ Back", color = Color.White) }
+    Row(
+        Modifier.fillMaxWidth().height(StatusBarHeight),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        PillButton("‹ Back", onClick = onExit)
         StatusPill(
-            "${source?.label ?: ""} · ${link.label}",
+            if (source == DroneSession.Source.DEMO) "Demo · ${link.label}" else link.label,
             color = when {
                 link.stale -> FlightColors.danger
                 link.connected -> FlightColors.ok
@@ -189,28 +233,32 @@ private fun StatusBar(
         )
         t.mode?.let { StatusPill(it.label) }
         StatusPill(if (t.armed) "Motors on" else "Motors off", color = if (t.armed) FlightColors.warn else FlightColors.muted)
+        PillButton(if (routeOpen) "Close route" else "ROUTE", onClick = onRoute, active = routeOpen)
         Spacer(Modifier.weight(1f))
         if (recordingSince != null) RecordingTimer(recordingSince)
         station?.let { s ->
-            StatusPill(
-                if (!s.linked) "Station –"
-                else buildString {
-                    append("Station ")
-                    append(s.groundBatteryPercent?.let { "%.0f%%".format(it) } ?: "--")
-                    s.signalBars?.let { append(" · " + "▮".repeat(it) + "▯".repeat((5 - it).coerceAtLeast(0))) }
-                },
-                color = if (s.linked) Color.White else FlightColors.muted,
-            )
+            // Base station (VxFly ground unit): battery and radio bars, drawn rather than typed.
+            Row(
+                Modifier.clip(RoundedCornerShape(50)).background(FlightColors.panel).padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    if (!s.linked) "Base –" else "Base " + (s.groundBatteryPercent?.let { "%.0f%%".format(it) } ?: "--"),
+                    color = if (s.linked) Color.White else FlightColors.muted, fontSize = 13.sp, maxLines = 1, softWrap = false,
+                )
+                if (s.linked) SignalBars(s.signalBars ?: 0)
+            }
         }
         StatusPill(
-            "GPS ${t.satellites}" + if (t.hasGpsFix) "" else " · no fix",
+            "GPS ${t.satellites}" + if (t.hasGpsFix) "" else " no fix",
             color = if (t.hasGpsFix) Color.White else FlightColors.warn,
         )
         StatusPill(
             buildString {
-                append("Battery ")
+                append("Batt ")
                 append(t.batteryPercent?.let { "$it%" } ?: "--")
-                t.batteryVoltage?.let { append(" · %.1f V".format(it)) }
+                t.batteryVoltage?.let { append(" %.1fV".format(it)) }
             },
             color = when (t.batteryLevel) {
                 BatteryLevel.CRITICAL -> FlightColors.danger
@@ -249,14 +297,19 @@ private fun Warnings(t: Telemetry, link: FlightViewModel.LinkUi, modifier: Modif
 
 @Composable
 private fun FlightReadouts(t: Telemetry) {
-    Row(
-        Modifier.background(FlightColors.panel, androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(18.dp),
+    // 2×2 grid keeps the bottom row narrow enough to fit beside the PiP and camera controls.
+    Column(
+        Modifier.background(FlightColors.panel, androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Readout("HEIGHT", t.altitudeRelative?.let { "%.1f m".format(it) } ?: "--")
-        Readout("DISTANCE", t.distanceFromHome?.let { "%.0f m".format(it) } ?: "--")
-        Readout("SPEED", "%.1f m/s".format(t.groundSpeed))
-        Readout("CLIMB", "%+.1f m/s".format(t.climbRate))
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Readout("HEIGHT", t.altitudeRelative?.let { "%.1f m".format(it) } ?: "--", Modifier.width(ReadoutWidth))
+            Readout("DISTANCE", t.distanceFromHome?.let { "%.0f m".format(it) } ?: "--", Modifier.width(ReadoutWidth))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Readout("SPEED", "%.1f m/s".format(t.groundSpeed), Modifier.width(ReadoutWidth))
+            Readout("CLIMB", "%+.1f m/s".format(t.climbRate), Modifier.width(ReadoutWidth))
+        }
     }
 }
 
@@ -270,7 +323,8 @@ private fun FlightActions(enabled: Boolean, vm: FlightViewModel) {
 
 @Composable
 private fun CameraControls(enabled: Boolean, recording: Boolean, vm: FlightViewModel, onSettings: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    // Fixed width: if the row is ever too tight, the flexible gap shrinks, never the camera buttons.
+    Column(Modifier.width(72.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         CameraButton("SET", active = false, enabled = enabled, activeColor = Color.White, onClick = onSettings, diameter = 48.dp)
         CameraButton("PHOTO", active = false, enabled = enabled && !recording, activeColor = Color.White, onClick = vm::takePhoto, diameter = 72.dp)
         CameraButton(if (recording) "STOP" else "REC", active = recording, enabled = enabled, activeColor = FlightColors.danger, onClick = vm::toggleRecording)

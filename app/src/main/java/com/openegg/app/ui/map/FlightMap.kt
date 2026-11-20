@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -94,8 +96,17 @@ fun FlightMap(
     onViewportChanged: ((GeoBounds, Double) -> Unit)? = null,
     centerOn: GeoPoint? = null,
     phoneLocation: PhoneLocationState? = null,
+    /** Where the map's own buttons go; the host screen passes a free area so they never cover its UI. */
+    controlsAlignment: Alignment = Alignment.TopEnd,
+    controlsPadding: PaddingValues = PaddingValues(8.dp),
+    /** Lay the map buttons out in a row (flight screen) instead of a column. */
+    controlsInRow: Boolean = false,
+    /** Placement of the OpenStreetMap attribution (must stay visible): Android Gravity + margins in dp (l, t, r, b). */
+    attributionGravity: Int = android.view.Gravity.BOTTOM or android.view.Gravity.START,
+    attributionMarginsDp: IntArray = intArrayOf(8, 0, 0, 8),
 ) {
     val context = LocalContext.current
+    val density = context.resources.displayMetrics.density
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val phone = phoneLocation ?: rememberPhoneLocation()
 
@@ -105,8 +116,12 @@ fun FlightMap(
         val options = MapLibreMapOptions.createFromAttributes(context)
             .textureMode(true)
             .logoEnabled(false)
-            .compassEnabled(showControls)
+            // Our "Heading up / North up" button replaces MapLibre's compass, which would
+            // otherwise sit in the top-right corner over the flight screen's status pills.
+            .compassEnabled(false)
             .attributionEnabled(showControls)
+            .attributionGravity(attributionGravity)
+            .attributionMargins(IntArray(4) { (attributionMarginsDp.getOrElse(it) { 0 } * density).toInt() })
         MapView(context, options).apply { onCreate(null) }
     }
     val controller = remember(mapView) { MapController(mapView) }
@@ -144,11 +159,7 @@ fun FlightMap(
         AndroidView(factory = { mapView }, modifier = Modifier.matchParentSize())
 
         if (showControls) {
-            Column(
-                Modifier.align(Alignment.TopEnd).padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-                horizontalAlignment = Alignment.End,
-            ) {
+            val buttons: @Composable () -> Unit = {
                 if (showFlightControls) {
                     MapButton(if (follow) "Following" else "Recenter", active = follow) {
                         MapUiPrefs.follow = true
@@ -168,6 +179,12 @@ fun FlightMap(
                     if (!phone.granted) phone.request()
                     else phone.location?.let { controller.centerOn(it, keepZoom = true); MapUiPrefs.follow = false }
                 }
+            }
+            val place = Modifier.align(controlsAlignment).padding(controlsPadding)
+            if (controlsInRow) {
+                Row(place, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { buttons() }
+            } else {
+                Column(place, verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.End) { buttons() }
             }
         }
     }

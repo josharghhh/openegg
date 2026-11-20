@@ -23,7 +23,10 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:screenOrientation="sensorLandscape">
+            <!-- singleTask: relaunching OpenEgg must return to the existing screen, never stack a
+                 second instance that would open a second connection to the aircraft. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

@@ -18,7 +18,7 @@ import com.openegg.app.drone.Telemetry
 import com.openegg.app.map.FlightTrail
 
 /** Default picture-in-picture size (landscape flight screen). */
-val PipModifier = Modifier.size(width = 200.dp, height = 124.dp)
+val PipModifier = Modifier.size(width = 176.dp, height = 110.dp)
 
 /**
  * Rounded, bordered corner frame that swallows all touches and calls [onClick]: tap to swap.
